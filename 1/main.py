@@ -6,17 +6,16 @@ import pymorphy3
 try:
     nltk.data.find('tokenizers/punkt_tab')
 except LookupError:
-    nltk.download('punkt_tab', quiet=True)  # нужно в новых версиях NLTK
+    nltk.download('punkt_tab', quiet=True) 
 
 morph = pymorphy3.MorphAnalyzer()
 
-# Части речи: существительные и полные прилагательные
+#существительные и полные прилагательные
 POS_OK = {'NOUN', 'ADJF'}
 
-# «Вторые» падежи pymorphy3 приводим к основным (в лесу = loc2 -> loct и т.п.)
-CASES = {'gen1': 'gent', 'gen2': 'gent', 
+CASES = {'gen1': 'gent', 'gen2': 'gent',
          'acc2': 'accs',
-         'loc1': 'loct', 'loc2': 'loct', 
+         'loc1': 'loct', 'loc2': 'loct',
          'voct': 'nomn'}
 
 def is_word(token):
@@ -28,7 +27,6 @@ def options(token: str):
         return []
     return [p for p in parses if p.tag.POS in POS_OK]
 
-
 def case(p):
     return CASES.get(p.tag.case, p.tag.case)
 
@@ -37,30 +35,34 @@ def agree(a, b):
         return False
     return a.tag.number == 'plur' or a.tag.gender == b.tag.gender
 
-
 def find_pairs(text: str):
+    """Возвращает список словарей: исходная пара слов и её нормальная форма."""
     result = []
     for sentence in sent_tokenize(text, language='russian'):
         tokens = word_tokenize(sentence, language='russian')
         parsed = [options(t) if is_word(t) else [] for t in tokens]
 
-        for left, right in zip(parsed, parsed[1:]):
-            # pymorphy3 не видит контекст, поэтому проверяем все разборы
-            # и берём согласованную пару с наибольшей вероятностью
+        for i in range(len(tokens) - 1):
+            left, right = parsed[i], parsed[i + 1]
+
             pairs = [(a, b) for a in left for b in right if agree(a, b)]
             if pairs:
                 a, b = max(pairs, key=lambda p: p[0].score * p[1].score)
-                result.append((a.normal_form, b.normal_form))
+                result.append({
+                    'orig': (tokens[i], tokens[i + 1]),
+                    'norm': (a.normal_form, b.normal_form),
+                })
     return result
-
 
 def main():
     with open(sys.argv[1], encoding='utf-8') as f:
         text = f.read()
 
     pairs = find_pairs(text)
-    for first, second in pairs:
-        print(first, second)
+    for p in pairs:
+        orig = f'{p["orig"][0]} {p["orig"][1]}'
+        norm = f'{p["norm"][0]} {p["norm"][1]}'
+        print(f'{orig:<35} →  {norm}')
     print(f'\nВсего пар: {len(pairs)}')
 
 
