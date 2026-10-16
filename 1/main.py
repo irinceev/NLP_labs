@@ -36,7 +36,6 @@ def agree(a, b):
     return a.tag.number == 'plur' or a.tag.gender == b.tag.gender
 
 def find_pairs(text: str):
-    """Возвращает список словарей: исходная пара слов и её нормальная форма."""
     result = []
     for sentence in sent_tokenize(text, language='russian'):
         tokens = word_tokenize(sentence, language='russian')
