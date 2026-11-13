@@ -1,39 +1,37 @@
 import torch
-from transformers import AutoTokenizer, AutoModelForMaskedLM
 from torch.nn import functional as F
-
-MODEL_NAME = "ai-forever/ruBert-base"
-TARGET_WORDS = ["жарить", "тушить"]
-TEXT = "Мясо можно [MASK] на сковороде."
-TOP_K = 10
-
+from transformers import AutoModelForMaskedLM, AutoTokenizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForMaskedLM.from_pretrained(MODEL_NAME).to(device)
+CHECKPOINT = "ai-forever/ruBert-base"
+CANDIDATES = ["жарить", "тушить"]
+SENTENCE = "Мясо можно [MASK] на сковороде."
+N_BEST = 10
+
+tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT)
+model = AutoModelForMaskedLM.from_pretrained(CHECKPOINT).to(device)
 model.eval()
 
-inputs = tokenizer(
-    TEXT.replace("[MASK]", tokenizer.mask_token),
+encoded = tokenizer(
+    SENTENCE.replace("[MASK]", tokenizer.mask_token),
     return_tensors="pt"
 ).to(device)
 
-mask_index = (inputs["input_ids"][0] == tokenizer.mask_token_id).nonzero(as_tuple=True)[0].item()
+pos = (encoded["input_ids"][0] == tokenizer.mask_token_id).nonzero(as_tuple=True)[0].item()
 
 with torch.inference_mode():
-    logits = model(**inputs).logits[0, mask_index]
-    probabilities = F.softmax(logits, dim=-1)
-    top = torch.topk(probabilities, TOP_K)
+    scores = model(**encoded).logits[0, pos]
+    dist = F.softmax(scores, dim=-1)
+    best = torch.topk(dist, N_BEST)
 
-words = [tokenizer.decode([token_id]).strip() for token_id in top.indices]
+tokens = [tokenizer.decode([tid]).strip() for tid in best.indices]
 
-print(f"\nПредложение: {TEXT}\n")
+print(f"\nПредложение: {SENTENCE}\n")
+for idx, (token, prob) in enumerate(zip(tokens, best.values), 1):
+    print(f"{idx:<4}{token:<20}{prob.item():>13.4%}")
 
-for rank, (word, probability) in enumerate(zip(words, top.values), 1):
-    print(f"{rank:<4}{word:<20}{probability.item():>13.4%}")
-
-print("\nПроверка целевых слов:")
-for word in TARGET_WORDS:
-    position = words.index(word) + 1 if word in words else None
-    result = f"место: {position}" if position else "не найдено"
-    print(f"  {word:<10} {result}")
+print("\nПроверка слов:")
+for target in CANDIDATES:
+    rank = tokens.index(target) + 1 if target in tokens else None
+    verdict = f"место: {rank}" if rank else "не найдено"
+    print(f"  {target:<10} {verdict}")
