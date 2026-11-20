@@ -1,8 +1,6 @@
-from pathlib import Path
-
 import gensim
 
-MODEL_PATH = Path(__file__).parent / "cbow.txt"
+MODEL_PATH = "cbow.txt"
 POSITIVE = ["банка_NOUN", "кочан_NOUN", "квашение_NOUN", "крыша_NOUN", "консервы_NOUN", "пробка_NOUN", "крыша_NOUN", "люк_NOUN", "огурец_NOUN"]
 NEGATIVE = ["бутыль_NOUN", "тушенка_NOUN", "дерево_NOUN", "кирпич_NOUN", "сушка_NOUN", "окно_NOUN", "корабль_NOUN", "провансаль_NOUN"]
 TARGETS = {"крышка_NOUN", "капуста_NOUN"}
@@ -34,9 +32,6 @@ def find_nouns(model, positive, negative, top_n):
 
 
 def main():
-    if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Файл модели не найден: {MODEL_PATH}")
-
     model = gensim.models.KeyedVectors.load_word2vec_format(
         str(MODEL_PATH),
         binary=False
